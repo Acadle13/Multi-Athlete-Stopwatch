@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Multi-Athlete Stopwatch</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background: #f0f0f0;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .controls, .athlete-form {
+      text-align: center;
+      margin: 15px 0;
+    }
+
+    button {
+      font-size: 18px;
+      margin: 5px;
+      padding: 10px 20px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button.stop {
+      background-color: #dc3545;
+    }
+
+    button.reset {
+      background-color: #6c757d;
+    }
+
+    button.split {
+      background-color: #28a745;
+    }
+
+    button.remove {
+      background-color: #ff6347;
+      font-size: 14px;
+      margin-left: 10px;
+      padding: 5px 10px;
+    }
+
+    button:disabled {
+      background-color: #aaa;
+    }
+
+    .athlete-list {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .athlete {
+      background: white;
+      padding: 10px;
+      margin: 5px;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    .athlete-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .athlete-name {
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .splits {
+      font-size: 14px;
+      color: #333;
+      margin-top: 5px;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 70%;
+      max-width: 300px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Multi-Athlete Stopwatch</h1>
+
+  <div class="controls">
+    <button id="startBtn">Start</button>
+    <button id="stopBtn" class="stop" disabled>Stop</button>
+    <button id="resetBtn" class="reset">Reset</button>
+    <div id="timerDisplay" style="font-size: 24px; margin-top: 10px;">00:00.00</div>
+  </div>
+
+  <div class="athlete-form">
+    <input type="text" id="athleteName" placeholder="Enter athlete name" />
+    <button onclick="addAthlete()">Add Athlete</button>
+  </div>
+
+  <div class="athlete-list" id="athleteList"></div>
+
+  <script>
+    let startTime = null;
+    let intervalId = null;
+    let isRunning = false;
+
+    const timerDisplay = document.getElementById('timerDisplay');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const athleteList = document.getElementById('athleteList');
+
+    let athletes = [];
+
+    function formatTime(ms) {
+      const totalSeconds = ms / 1000;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = Math.floor(totalSeconds % 60);
+      const centiseconds = Math.floor((ms % 1000) / 10);
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`;
+    }
+
+    function updateTimer() {
+      const elapsed = Date.now() - startTime;
+      timerDisplay.textContent = formatTime(elapsed);
+    }
+
+    startBtn.onclick = () => {
+      if (!isRunning) {
+        startTime = Date.now();
+
+        athletes.forEach(athlete => {
+          if (athlete.lastSplitTime === null) {
+            athlete.lastSplitTime = startTime;
+          }
+        });
+
+        intervalId = setInterval(updateTimer, 50);
+        isRunning = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      }
+    };
+
+    stopBtn.onclick = () => {
+      if (isRunning) {
+        clearInterval(intervalId);
+        updateTimer();
+        isRunning = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      }
+    };
+
+    resetBtn.onclick = () => {
+      clearInterval(intervalId);
+      timerDisplay.textContent = '00:00.00';
+      isRunning = false;
+      startTime = null;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+
+      athletes.forEach(athlete => {
+        athlete.lastSplitTime = null;
+        athlete.lap = 1;
+        athlete.splitsEl.innerHTML = '';
+        athlete.totalTime = null;
+      });
+    };
+
+    function sortAthletes() {
+      athletes.sort((a, b) => {
+        if (a.totalTime === null) return 1;
+        if (b.totalTime === null) return -1;
+        return a.totalTime - b.totalTime;
+      });
+
+      athleteList.innerHTML = '';
+      athletes.forEach(athlete => {
+        athleteList.appendChild(athlete.container);
+      });
+    }
+
+    function addAthlete() {
+      const nameInput = document.getElementById('athleteName');
+      const name = nameInput.value.trim();
+      if (!name) return;
+
+      const container = document.createElement('div');
+      container.className = 'athlete';
+
+      const header = document.createElement('div');
+      header.className = 'athlete-header';
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'athlete-name';
+      nameEl.textContent = name;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = '❌';
+      removeBtn.className = 'remove';
+      removeBtn.onclick = () => {
+        container.remove();
+        athletes = athletes.filter(a => a.container !== container);
+      };
+
+      header.appendChild(nameEl);
+      header.appendChild(removeBtn);
+
+      const splitBtn = document.createElement('button');
+      splitBtn.textContent = 'Split';
+      splitBtn.className = 'split';
+
+      const splitsEl = document.createElement('div');
+      splitsEl.className = 'splits';
+
+      let athlete = {
+        name,
+        container,
+        splitsEl,
+        splitBtn,
+        lap: 1,
+        lastSplitTime: isRunning ? startTime : null,
+        totalTime: null
+      };
+
+      splitBtn.onclick = () => {
+        if (!isRunning || athlete.lastSplitTime === null) return;
+
+        const now = Date.now();
+        const lapTime = now - athlete.lastSplitTime;
+        const totalTime = now - startTime;
+        athlete.lastSplitTime = now;
+        athlete.totalTime = totalTime;
+
+        const entry = document.createElement('div');
+        entry.textContent = `Lap ${athlete.lap}: ${formatTime(lapTime)} (Total: ${formatTime(totalTime)})`;
+        athlete.splitsEl.appendChild(entry);
+        athlete.lap++;
+
+        sortAthletes();
+      };
+
+      container.appendChild(header);
+      container.appendChild(splitBtn);
+      container.appendChild(splitsEl);
+      athleteList.appendChild(container);
+
+      athletes.push(athlete);
+      nameInput.value = '';
+    }
+  </script>
+</body>
+</html>
